@@ -5,8 +5,10 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Kösystem</title>
 
-    <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js"></script>
-    <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js"></script>
+<!-- Firebase (compat versions så vi kan använda enkel syntax) -->
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
+
 <style>
 body {
     font-family: Arial, sans-serif;
@@ -15,14 +17,12 @@ body {
 }
 
 .container {
-    max-width: 600px;
+    max-width: 700px;
     margin: auto;
     padding: 20px;
 }
 
-.hidden {
-    display: none;
-}
+.hidden { display: none; }
 
 button {
     padding: 10px 15px;
@@ -42,13 +42,13 @@ input, select {
     padding: 10px;
     margin: 10px;
     border-radius: 5px;
-    color: #000;
+    background: white;
+    text-align: left;
 }
 
 .red { background: #ffcccc; }
 .yellow { background: #fff3cd; }
 .green { background: #d4edda; }
-
 </style>
 </head>
 
@@ -56,9 +56,11 @@ input, select {
 
 <div class="container">
 
+<h2>Kösystem</h2>
+
 <!-- LOGIN -->
 <div id="login">
-    <h2>Lösenord</h2>
+    <h3>Lösenord</h3>
     <input type="password" id="password" placeholder="Ange lösenord">
     <br>
     <button onclick="checkPassword()">Logga in</button>
@@ -66,14 +68,14 @@ input, select {
 
 <!-- ROLL -->
 <div id="role" class="hidden">
-    <h2>Välj roll</h2>
+    <h3>Välj roll</h3>
     <button onclick="setRole('employee')">Medarbetare</button>
     <button onclick="setRole('leader')">Arbetsledare</button>
 </div>
 
 <!-- MEDARBETARE -->
 <div id="employee" class="hidden">
-    <h2>Medarbetare</h2>
+    <h3>Medarbetare</h3>
     <input id="empName" placeholder="Ditt namn">
 
     <br>
@@ -87,18 +89,18 @@ input, select {
     <button onclick="joinQueue()">Ställ dig i kö</button>
     <button onclick="leaveQueue()">Avbryt</button>
 
-    <h3>Din plats i kön:</h3>
-    <div id="myPosition"></div>
+    <h4>Din status:</h4>
+    <div id="myStatus"></div>
 </div>
 
 <!-- ARBETSLEDARE -->
 <div id="leader" class="hidden">
-    <h2>Arbetsledare</h2>
+    <h3>Arbetsledare</h3>
     <input id="leaderName" placeholder="Ditt namn">
     <br>
     <button onclick="loadQueue()">Uppdatera</button>
 
-    <h3>Kö:</h3>
+    <h4>Kö:</h4>
     <div id="queueList"></div>
 </div>
 
@@ -106,16 +108,27 @@ input, select {
 
 <script>
 
-let PASSWORD = "1234";
-let queue = JSON.parse(localStorage.getItem("queue") || "[]");
-let currentUser = null;
+// ===== FIREBASE INIT =====
+const firebaseConfig = {
+  apiKey: "DIN_API_KEY",
+  authDomain: "DIN_AUTH_DOMAIN",
+  projectId: "DIN_PROJECT_ID",
+  storageBucket: "DIN_STORAGE",
+  messagingSenderId: "DIN_SENDER",
+  appId: "DIN_APP_ID"
+};
 
-function save() {
-    localStorage.setItem("queue", JSON.stringify(queue));
-}
+firebase.initializeApp(firebaseConfig);
+const db = firebase.firestore();
+
+// ===== APP LOGIC =====
+
+let currentUser = null;
+const PASSWORD = "1234";
 
 function checkPassword() {
-    if (document.getElementById("password").value === PASSWORD) {
+    let pw = document.getElementById("password").value;
+    if (pw === PASSWORD) {
         document.getElementById("login").classList.add("hidden");
         document.getElementById("role").classList.remove("hidden");
     } else {
@@ -128,103 +141,57 @@ function setRole(role) {
     document.getElementById(role).classList.remove("hidden");
 }
 
+// ===== MEDARBETARE =====
 function joinQueue() {
     let name = document.getElementById("empName").value;
     let priority = document.getElementById("priority").value;
 
-    if (!name) {
-        alert("Skriv namn");
-        return;
-    }
+    if (!name) return alert("Skriv namn");
 
     currentUser = name;
 
-    queue.push({
-        name,
-        priority,
+    db.collection("queue").add({
+        name: name,
+        priority: priority,
         time: Date.now(),
         takenBy: null
     });
-
-    save();
-    loadQueue();
 }
 
 function leaveQueue() {
-    queue = queue.filter(q => q.name !== currentUser);
-    save();
-    loadQueue();
+    // enkel variant: tas bort manuellt i listan (kan byggas ut senare)
+    alert("Funktion kan byggas ut med ID-spårning");
 }
 
-function getSortedQueue() {
-    let prio = { red: 0, yellow: 1, green: 2 };
+// ===== REALTIME QUEUE =====
+db.collection("queue").orderBy("time").onSnapshot(snapshot => {
+    let list = document.getElementById("queueList");
+    if (!list) return;
 
-    return [...queue].sort((a, b) => {
-        if (prio[a.priority] !== prio[b.priority]) {
-            return prio[a.priority] - prio[b.priority];
-        }
-        return a.time - b.time;
+    list.innerHTML = "";
+
+    let index = 1;
+
+    snapshot.forEach(doc => {
+        let q = doc.data();
+
+        let div = document.createElement("div");
+        div.className = "queue-item " + q.priority;
+
+        div.innerHTML = `
+            <b>${index}. ${q.name}</b><br>
+            Prioritet: ${q.priority}<br>
+            ${q.takenBy ? "Paxad av: " + q.takenBy : "Inte paxad"}
+        `;
+
+        list.appendChild(div);
+        index++;
     });
-}
+});
 
 function loadQueue() {
-    let sorted = getSortedQueue();
-
-    let list = document.getElementById("queueList");
-    if (list) {
-        list.innerHTML = "";
-
-        sorted.forEach((q, i) => {
-            let waitTime = Math.floor((Date.now() - q.time) / 1000);
-
-            let div = document.createElement("div");
-            div.className = "queue-item " + q.priority;
-
-            div.innerHTML = `
-                <b>${i + 1}. ${q.name}</b><br>
-                Väntat: ${waitTime}s<br>
-                ${q.takenBy ? "Paxad av: " + q.takenBy : ""}
-                <br>
-                <button onclick="take('${q.name}')">Paxa</button>
-                <button onclick="complete('${q.name}')">Klar</button>
-            `;
-
-            list.appendChild(div);
-        });
-    }
-
-    // visa position för medarbetare
-    let myPos = document.getElementById("myPosition");
-    if (myPos && currentUser) {
-        let index = sorted.findIndex(q => q.name === currentUser);
-        myPos.innerText = index >= 0 ? index + " i kön" : "Inte i kö";
-    }
+    // realtime hanterar detta
 }
-
-function take(name) {
-    let leader = document.getElementById("leaderName").value;
-    if (!leader) {
-        alert("Skriv ditt namn först");
-        return;
-    }
-
-    queue.forEach(q => {
-        if (q.name === name) {
-            q.takenBy = leader;
-        }
-    });
-
-    save();
-    loadQueue();
-}
-
-function complete(name) {
-    queue = queue.filter(q => q.name !== name);
-    save();
-    loadQueue();
-}
-
-setInterval(loadQueue, 3000);
 
 </script>
 
