@@ -72,10 +72,11 @@ input, select, button {
 
     <br>
 
+    <label>Prio:</label>
     <select id="priority">
-        <option value="green">Grön</option>
-        <option value="yellow">Gul</option>
-        <option value="red">Röd</option>
+        <option value="red">HÖG</option>
+        <option value="yellow">MEDEL</option>
+        <option value="green">LÅG</option>
     </select>
 
     <br>
@@ -116,6 +117,13 @@ const db = firebase.firestore();
 // ================= STATE =================
 let currentUserId = null;
 
+// Prioritet (lägre = viktigare)
+const priorityValue = {
+    red: 1,
+    yellow: 2,
+    green: 3
+};
+
 // ================= LOGIN =================
 function checkPassword() {
     let pw = document.getElementById("password").value;
@@ -152,7 +160,7 @@ function joinQueue() {
 }
 
 // ================= REALTIME QUEUE =================
-db.collection("queue").orderBy("time")
+db.collection("queue")
 .onSnapshot(snapshot => {
 
     let list = document.getElementById("queueList");
@@ -160,37 +168,49 @@ db.collection("queue").orderBy("time")
 
     if (!list) return;
 
-    list.innerHTML = "";
-
-    let index = 1;
-    let myPosition = null;
+    let items = [];
 
     snapshot.forEach(doc => {
-        let q = doc.data();
+        items.push({ id: doc.id, ...doc.data() });
+    });
 
-        if (doc.id === currentUserId) {
-            myPosition = index;
+    // SORTERING: prio först, sedan tid
+    items.sort((a, b) => {
+        if (priorityValue[a.priority] !== priorityValue[b.priority]) {
+            return priorityValue[a.priority] - priorityValue[b.priority];
+        }
+        return a.time - b.time;
+    });
+
+    list.innerHTML = "";
+
+    let myPosition = null;
+
+    items.forEach((q, index) => {
+
+        if (q.id === currentUserId) {
+            myPosition = index + 1;
         }
 
         let div = document.createElement("div");
         div.className = "queue-item " + q.priority;
 
         div.innerHTML = `
-            <b>${index}. ${q.name}</b><br>
-            Prioritet: ${q.priority}<br>
+            <b>${index + 1}. ${q.name}</b><br>
+            Prio: ${
+                q.priority === "red" ? "HÖG" :
+                q.priority === "yellow" ? "MEDEL" : "LÅG"
+            }<br>
             ${q.takenBy ? "Paxad av: " + q.takenBy : "Inte paxad"}
         `;
 
         list.appendChild(div);
-        index++;
     });
 
     if (myStatus) {
-        if (myPosition) {
-            myStatus.innerHTML = "Du är plats: " + myPosition;
-        } else {
-            myStatus.innerHTML = "Inte i kön";
-        }
+        myStatus.innerHTML = myPosition
+            ? "Din plats: " + myPosition
+            : "Inte i kön";
     }
 });
 
