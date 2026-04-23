@@ -31,7 +31,7 @@ input, select, button {
 
 .queue-item {
     background: white;
-    margin: 10px;
+    margin: 8px;
     padding: 10px;
     border-radius: 8px;
     text-align: left;
@@ -57,14 +57,14 @@ input, select, button {
     <button onclick="checkPassword()">Logga in</button>
 </div>
 
-<!-- ROLL -->
+<!-- ROLE -->
 <div id="role" class="hidden">
     <h3>Välj roll</h3>
     <button onclick="setRole('employee')">Medarbetare</button>
     <button onclick="setRole('leader')">Arbetsledare</button>
 </div>
 
-<!-- MEDARBETARE -->
+<!-- EMPLOYEE -->
 <div id="employee" class="hidden">
     <h3>Medarbetare</h3>
 
@@ -82,11 +82,11 @@ input, select, button {
 
     <button onclick="joinQueue()">Ställ dig i kö</button>
 
-    <h4>Din status:</h4>
-    <div id="myStatus"></div>
+    <h3>Din plats:</h3>
+    <div id="myStatus">Inte i kön</div>
 </div>
 
-<!-- ARBETSLEDARE -->
+<!-- LEADER -->
 <div id="leader" class="hidden">
     <h3>Arbetsledare</h3>
 
@@ -113,16 +113,14 @@ const firebaseConfig = {
 firebase.initializeApp(firebaseConfig);
 const db = firebase.firestore();
 
-// ================= LOGIC =================
+// ================= STATE =================
+let currentUserId = null;
 
-let currentUser = null;
-const PASSWORD = "1234";
-
-// LOGIN
+// ================= LOGIN =================
 function checkPassword() {
     let pw = document.getElementById("password").value;
 
-    if (pw === PASSWORD) {
+    if (pw === "1234") {
         document.getElementById("login").classList.add("hidden");
         document.getElementById("role").classList.remove("hidden");
     } else {
@@ -130,42 +128,49 @@ function checkPassword() {
     }
 }
 
-// ROLE
+// ================= ROLE =================
 function setRole(role) {
     document.getElementById("role").classList.add("hidden");
     document.getElementById(role).classList.remove("hidden");
 }
 
-// JOIN QUEUE
+// ================= JOIN QUEUE =================
 function joinQueue() {
     let name = document.getElementById("empName").value;
     let priority = document.getElementById("priority").value;
 
     if (!name) return alert("Skriv namn");
 
-    currentUser = name;
-
     db.collection("queue").add({
         name: name,
         priority: priority,
         time: Date.now(),
         takenBy: null
+    }).then((docRef) => {
+        currentUserId = docRef.id;
     });
 }
 
-// REALTIME QUEUE
+// ================= REALTIME QUEUE =================
 db.collection("queue").orderBy("time")
 .onSnapshot(snapshot => {
 
     let list = document.getElementById("queueList");
+    let myStatus = document.getElementById("myStatus");
+
     if (!list) return;
 
     list.innerHTML = "";
 
     let index = 1;
+    let myPosition = null;
 
     snapshot.forEach(doc => {
         let q = doc.data();
+
+        if (doc.id === currentUserId) {
+            myPosition = index;
+        }
 
         let div = document.createElement("div");
         div.className = "queue-item " + q.priority;
@@ -174,30 +179,20 @@ db.collection("queue").orderBy("time")
             <b>${index}. ${q.name}</b><br>
             Prioritet: ${q.priority}<br>
             ${q.takenBy ? "Paxad av: " + q.takenBy : "Inte paxad"}
-            <br><br>
-            <button onclick="take('${doc.id}')">Paxa</button>
-            <button onclick="done('${doc.id}')">Klar</button>
         `;
 
         list.appendChild(div);
         index++;
     });
+
+    if (myStatus) {
+        if (myPosition) {
+            myStatus.innerHTML = "Du är plats: " + myPosition;
+        } else {
+            myStatus.innerHTML = "Inte i kön";
+        }
+    }
 });
-
-// PAXA
-function take(id) {
-    let leader = document.getElementById("leaderName").value;
-    if (!leader) return alert("Skriv ditt namn först");
-
-    db.collection("queue").doc(id).update({
-        takenBy: leader
-    });
-}
-
-// KLAR / TA BORT
-function done(id) {
-    db.collection("queue").doc(id).delete();
-}
 
 </script>
 
