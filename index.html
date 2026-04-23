@@ -6,8 +6,8 @@
 <title>Kösystem</title>
 
 <!-- Firebase -->
-<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
-<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.12/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.12/firebase-firestore-compat.js"></script>
 
 <style>
 body {
@@ -17,7 +17,7 @@ body {
 }
 
 .container {
-    max-width: 700px;
+    max-width: 750px;
     margin: auto;
     padding: 20px;
 }
@@ -40,6 +40,12 @@ input, select, button {
 .red { background: #ffcccc; }
 .yellow { background: #fff3cd; }
 .green { background: #d4edda; }
+
+button.small {
+    padding: 5px 8px;
+    margin-top: 5px;
+    font-size: 12px;
+}
 </style>
 </head>
 
@@ -52,7 +58,7 @@ input, select, button {
 <!-- LOGIN -->
 <div id="login">
     <h3>Lösenord</h3>
-    <input type="password" id="password" placeholder="Lösenord">
+    <input type="password" id="password">
     <br>
     <button onclick="checkPassword()">Logga in</button>
 </div>
@@ -82,6 +88,8 @@ input, select, button {
     <br>
 
     <button onclick="joinQueue()">Ställ dig i kö</button>
+    <button onclick="cancelMyQueue()">Avbryt</button>
+    <button onclick="markDone()">Klar</button>
 
     <h3>Din plats:</h3>
     <div id="myStatus">Inte i kön</div>
@@ -117,7 +125,6 @@ const db = firebase.firestore();
 // ================= STATE =================
 let currentUserId = null;
 
-// Prioritet (lägre = viktigare)
 const priorityValue = {
     red: 1,
     yellow: 2,
@@ -142,7 +149,7 @@ function setRole(role) {
     document.getElementById(role).classList.remove("hidden");
 }
 
-// ================= JOIN QUEUE =================
+// ================= EMPLOYEE ACTIONS =================
 function joinQueue() {
     let name = document.getElementById("empName").value;
     let priority = document.getElementById("priority").value;
@@ -154,9 +161,36 @@ function joinQueue() {
         priority: priority,
         time: Date.now(),
         takenBy: null
-    }).then((docRef) => {
-        currentUserId = docRef.id;
+    }).then(doc => {
+        currentUserId = doc.id;
     });
+}
+
+// avbryt (tar bort din plats)
+function cancelMyQueue() {
+    if (!currentUserId) return;
+
+    db.collection("queue").doc(currentUserId).delete();
+    currentUserId = null;
+}
+
+// markera klar (samma som remove)
+function markDone() {
+    cancelMyQueue();
+}
+
+// ================= LEADER ACTIONS =================
+function take(id) {
+    let leader = document.getElementById("leaderName").value;
+    if (!leader) return alert("Skriv ditt namn");
+
+    db.collection("queue").doc(id).update({
+        takenBy: leader
+    });
+}
+
+function done(id) {
+    db.collection("queue").doc(id).delete();
 }
 
 // ================= REALTIME QUEUE =================
@@ -174,7 +208,6 @@ db.collection("queue")
         items.push({ id: doc.id, ...doc.data() });
     });
 
-    // SORTERING: prio först, sedan tid
     items.sort((a, b) => {
         if (priorityValue[a.priority] !== priorityValue[b.priority]) {
             return priorityValue[a.priority] - priorityValue[b.priority];
@@ -202,6 +235,10 @@ db.collection("queue")
                 q.priority === "yellow" ? "MEDEL" : "LÅG"
             }<br>
             ${q.takenBy ? "Paxad av: " + q.takenBy : "Inte paxad"}
+            <br><br>
+
+            <button onclick="take('${q.id}')">Paxa</button>
+            <button onclick="done('${q.id}')">Klar</button>
         `;
 
         list.appendChild(div);
