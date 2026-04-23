@@ -1,0 +1,230 @@
+<!DOCTYPE html>
+<html lang="sv">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Kösystem</title>
+
+<style>
+body {
+    font-family: Arial, sans-serif;
+    text-align: center;
+    background: #f4f4f4;
+}
+
+.container {
+    max-width: 600px;
+    margin: auto;
+    padding: 20px;
+}
+
+.hidden {
+    display: none;
+}
+
+button {
+    padding: 10px 15px;
+    margin: 5px;
+    border: none;
+    cursor: pointer;
+    border-radius: 5px;
+}
+
+input, select {
+    padding: 10px;
+    margin: 5px;
+    width: 80%;
+}
+
+.queue-item {
+    padding: 10px;
+    margin: 10px;
+    border-radius: 5px;
+    color: #000;
+}
+
+.red { background: #ffcccc; }
+.yellow { background: #fff3cd; }
+.green { background: #d4edda; }
+
+</style>
+</head>
+
+<body>
+
+<div class="container">
+
+<!-- LOGIN -->
+<div id="login">
+    <h2>Lösenord</h2>
+    <input type="password" id="password" placeholder="Ange lösenord">
+    <br>
+    <button onclick="checkPassword()">Logga in</button>
+</div>
+
+<!-- ROLL -->
+<div id="role" class="hidden">
+    <h2>Välj roll</h2>
+    <button onclick="setRole('employee')">Medarbetare</button>
+    <button onclick="setRole('leader')">Arbetsledare</button>
+</div>
+
+<!-- MEDARBETARE -->
+<div id="employee" class="hidden">
+    <h2>Medarbetare</h2>
+    <input id="empName" placeholder="Ditt namn">
+
+    <br>
+    <select id="priority">
+        <option value="green">Grön</option>
+        <option value="yellow">Gul</option>
+        <option value="red">Röd</option>
+    </select>
+
+    <br>
+    <button onclick="joinQueue()">Ställ dig i kö</button>
+    <button onclick="leaveQueue()">Avbryt</button>
+
+    <h3>Din plats i kön:</h3>
+    <div id="myPosition"></div>
+</div>
+
+<!-- ARBETSLEDARE -->
+<div id="leader" class="hidden">
+    <h2>Arbetsledare</h2>
+    <input id="leaderName" placeholder="Ditt namn">
+    <br>
+    <button onclick="loadQueue()">Uppdatera</button>
+
+    <h3>Kö:</h3>
+    <div id="queueList"></div>
+</div>
+
+</div>
+
+<script>
+
+let PASSWORD = "1234";
+let queue = JSON.parse(localStorage.getItem("queue") || "[]");
+let currentUser = null;
+
+function save() {
+    localStorage.setItem("queue", JSON.stringify(queue));
+}
+
+function checkPassword() {
+    if (document.getElementById("password").value === PASSWORD) {
+        document.getElementById("login").classList.add("hidden");
+        document.getElementById("role").classList.remove("hidden");
+    } else {
+        alert("Fel lösenord");
+    }
+}
+
+function setRole(role) {
+    document.getElementById("role").classList.add("hidden");
+    document.getElementById(role).classList.remove("hidden");
+}
+
+function joinQueue() {
+    let name = document.getElementById("empName").value;
+    let priority = document.getElementById("priority").value;
+
+    if (!name) {
+        alert("Skriv namn");
+        return;
+    }
+
+    currentUser = name;
+
+    queue.push({
+        name,
+        priority,
+        time: Date.now(),
+        takenBy: null
+    });
+
+    save();
+    loadQueue();
+}
+
+function leaveQueue() {
+    queue = queue.filter(q => q.name !== currentUser);
+    save();
+    loadQueue();
+}
+
+function getSortedQueue() {
+    let prio = { red: 0, yellow: 1, green: 2 };
+
+    return [...queue].sort((a, b) => {
+        if (prio[a.priority] !== prio[b.priority]) {
+            return prio[a.priority] - prio[b.priority];
+        }
+        return a.time - b.time;
+    });
+}
+
+function loadQueue() {
+    let sorted = getSortedQueue();
+
+    let list = document.getElementById("queueList");
+    if (list) {
+        list.innerHTML = "";
+
+        sorted.forEach((q, i) => {
+            let waitTime = Math.floor((Date.now() - q.time) / 1000);
+
+            let div = document.createElement("div");
+            div.className = "queue-item " + q.priority;
+
+            div.innerHTML = `
+                <b>${i + 1}. ${q.name}</b><br>
+                Väntat: ${waitTime}s<br>
+                ${q.takenBy ? "Paxad av: " + q.takenBy : ""}
+                <br>
+                <button onclick="take('${q.name}')">Paxa</button>
+                <button onclick="complete('${q.name}')">Klar</button>
+            `;
+
+            list.appendChild(div);
+        });
+    }
+
+    // visa position för medarbetare
+    let myPos = document.getElementById("myPosition");
+    if (myPos && currentUser) {
+        let index = sorted.findIndex(q => q.name === currentUser);
+        myPos.innerText = index >= 0 ? index + " i kön" : "Inte i kö";
+    }
+}
+
+function take(name) {
+    let leader = document.getElementById("leaderName").value;
+    if (!leader) {
+        alert("Skriv ditt namn först");
+        return;
+    }
+
+    queue.forEach(q => {
+        if (q.name === name) {
+            q.takenBy = leader;
+        }
+    });
+
+    save();
+    loadQueue();
+}
+
+function complete(name) {
+    queue = queue.filter(q => q.name !== name);
+    save();
+    loadQueue();
+}
+
+setInterval(loadQueue, 3000);
+
+</script>
+
+</body>
+</html>
