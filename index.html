@@ -5,12 +5,13 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Kösystem</title>
 
+<!-- Firebase (VIKTIGT: compat-version) -->
 <script src="https://www.gstatic.com/firebasejs/10.12.12/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.12/firebase-firestore-compat.js"></script>
 
 <style>
 body { font-family: Arial; background:#f4f4f4; text-align:center; }
-.container { max-width:700px; margin:auto; padding:20px; }
+.container { max-width:750px; margin:auto; padding:20px; }
 .hidden { display:none; }
 
 input, select, button { padding:10px; margin:5px; }
@@ -27,11 +28,10 @@ input, select, button { padding:10px; margin:5px; }
 .yellow { background:#fff3cd; }
 .green { background:#d4edda; }
 
-.my-box {
+.mybox {
   margin-top:15px;
   padding:15px;
   border-radius:10px;
-  color:black;
 }
 </style>
 </head>
@@ -74,12 +74,13 @@ input, select, button { padding:10px; margin:5px; }
 
   <button onclick="joinQueue()">Ställ dig i kö</button>
 
-  <div id="myBox" class="my-box hidden"></div>
+  <div id="myBox" class="mybox hidden"></div>
 </div>
 
 <!-- LEADER -->
 <div id="leader" class="hidden">
   <h3>Arbetsledare</h3>
+
   <input id="leaderName" placeholder="Namn">
 
   <h4>Kö</h4>
@@ -106,11 +107,16 @@ const db = firebase.firestore();
 // ================= STATE =================
 let currentUserId = null;
 
-const prio = { red:1, yellow:2, green:3 };
+const prio = {
+  red: 1,
+  yellow: 2,
+  green: 3
+};
 
 // ================= LOGIN =================
 function login() {
   let pw = document.getElementById("password").value;
+
   if (pw === "1234") {
     document.getElementById("login").classList.add("hidden");
     document.getElementById("role").classList.remove("hidden");
@@ -125,7 +131,7 @@ function setRole(role) {
   document.getElementById(role).classList.remove("hidden");
 }
 
-// ================= JOIN =================
+// ================= JOIN QUEUE =================
 function joinQueue() {
   let name = document.getElementById("empName").value;
   let priority = document.getElementById("priority").value;
@@ -149,13 +155,27 @@ function removeMy() {
   currentUserId = null;
 }
 
+// ================= LEADER ACTIONS =================
+function take(id) {
+  let leader = document.getElementById("leaderName").value;
+  if (!leader) return alert("Skriv namn");
+
+  db.collection("queue").doc(id).update({
+    takenBy: leader
+  });
+}
+
+function done(id) {
+  db.collection("queue").doc(id).delete();
+}
+
 // ================= REALTIME =================
 db.collection("queue").onSnapshot(snapshot => {
 
   let items = [];
-  snapshot.forEach(d => items.push({id:d.id, ...d.data()}));
+  snapshot.forEach(d => items.push({ id: d.id, ...d.data() }));
 
-  // SORT
+  // SORT: prio först, sedan tid
   items.sort((a,b)=>{
     if (prio[a.priority] !== prio[b.priority]) {
       return prio[a.priority] - prio[b.priority];
@@ -163,8 +183,9 @@ db.collection("queue").onSnapshot(snapshot => {
     return a.time - b.time;
   });
 
-  // LEADER VIEW
+  // ===== LEADER VIEW =====
   let list = document.getElementById("queueList");
+
   if (list) {
     list.innerHTML = "";
 
@@ -186,7 +207,7 @@ db.collection("queue").onSnapshot(snapshot => {
     });
   }
 
-  // EMPLOYEE VIEW (din plats + färgad box)
+  // ===== EMPLOYEE VIEW =====
   let myBox = document.getElementById("myBox");
 
   if (myBox && currentUserId) {
@@ -196,38 +217,25 @@ db.collection("queue").onSnapshot(snapshot => {
 
     items.forEach((q,i)=>{
       if (q.id === currentUserId) {
-        myIndex = i+1;
+        myIndex = i + 1;
         myData = q;
       }
     });
 
     if (myData) {
       myBox.classList.remove("hidden");
-      myBox.className = "my-box " + myData.priority;
+      myBox.className = "mybox " + myData.priority;
 
       myBox.innerHTML = `
         <b>Din plats: ${myIndex}</b><br>
-        Status: ${myData.priority.toUpperCase()}<br><br>
+        Prio: ${myData.priority.toUpperCase()}<br><br>
+
         <button onclick="removeMy()">Avbryt</button>
         <button onclick="removeMy()">Klar</button>
       `;
     }
   }
 });
-
-// ================= LEADER ACTIONS =================
-function take(id){
-  let name = document.getElementById("leaderName").value;
-  if (!name) return alert("Skriv namn");
-
-  db.collection("queue").doc(id).update({
-    takenBy:name
-  });
-}
-
-function done(id){
-  db.collection("queue").doc(id).delete();
-}
 
 </script>
 
