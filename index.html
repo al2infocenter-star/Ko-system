@@ -5,46 +5,33 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Kösystem</title>
 
-<!-- Firebase -->
 <script src="https://www.gstatic.com/firebasejs/10.12.12/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.12/firebase-firestore-compat.js"></script>
 
 <style>
-body {
-    font-family: Arial;
-    background: #f4f4f4;
-    text-align: center;
-}
+body { font-family: Arial; background:#f4f4f4; text-align:center; }
+.container { max-width:700px; margin:auto; padding:20px; }
+.hidden { display:none; }
 
-.container {
-    max-width: 750px;
-    margin: auto;
-    padding: 20px;
-}
-
-.hidden { display: none; }
-
-input, select, button {
-    padding: 10px;
-    margin: 5px;
-}
+input, select, button { padding:10px; margin:5px; }
 
 .queue-item {
-    background: white;
-    margin: 8px;
-    padding: 10px;
-    border-radius: 8px;
-    text-align: left;
+  background:white;
+  margin:8px;
+  padding:10px;
+  border-radius:8px;
+  text-align:left;
 }
 
-.red { background: #ffcccc; }
-.yellow { background: #fff3cd; }
-.green { background: #d4edda; }
+.red { background:#ffcccc; }
+.yellow { background:#fff3cd; }
+.green { background:#d4edda; }
 
-button.small {
-    padding: 5px 8px;
-    margin-top: 5px;
-    font-size: 12px;
+.my-box {
+  margin-top:15px;
+  padding:15px;
+  border-radius:10px;
+  color:black;
 }
 </style>
 </head>
@@ -57,52 +44,46 @@ button.small {
 
 <!-- LOGIN -->
 <div id="login">
-    <h3>Lösenord</h3>
-    <input type="password" id="password">
-    <br>
-    <button onclick="checkPassword()">Logga in</button>
+  <input type="password" id="password" placeholder="Lösenord">
+  <br>
+  <button onclick="login()">Logga in</button>
 </div>
 
 <!-- ROLE -->
 <div id="role" class="hidden">
-    <h3>Välj roll</h3>
-    <button onclick="setRole('employee')">Medarbetare</button>
-    <button onclick="setRole('leader')">Arbetsledare</button>
+  <button onclick="setRole('employee')">Medarbetare</button>
+  <button onclick="setRole('leader')">Arbetsledare</button>
 </div>
 
 <!-- EMPLOYEE -->
 <div id="employee" class="hidden">
-    <h3>Medarbetare</h3>
+  <h3>Medarbetare</h3>
 
-    <input id="empName" placeholder="Ditt namn">
+  <input id="empName" placeholder="Namn">
 
-    <br>
+  <br>
 
-    <label>Prio:</label>
-    <select id="priority">
-        <option value="red">HÖG</option>
-        <option value="yellow">MEDEL</option>
-        <option value="green">LÅG</option>
-    </select>
+  <label>Prio:</label>
+  <select id="priority">
+    <option value="red">HÖG</option>
+    <option value="yellow">MEDEL</option>
+    <option value="green">LÅG</option>
+  </select>
 
-    <br>
+  <br>
 
-    <button onclick="joinQueue()">Ställ dig i kö</button>
-    <button onclick="cancelMyQueue()">Avbryt</button>
-    <button onclick="markDone()">Klar</button>
+  <button onclick="joinQueue()">Ställ dig i kö</button>
 
-    <h3>Din plats:</h3>
-    <div id="myStatus">Inte i kön</div>
+  <div id="myBox" class="my-box hidden"></div>
 </div>
 
 <!-- LEADER -->
 <div id="leader" class="hidden">
-    <h3>Arbetsledare</h3>
+  <h3>Arbetsledare</h3>
+  <input id="leaderName" placeholder="Namn">
 
-    <input id="leaderName" placeholder="Ditt namn">
-
-    <h4>Kö</h4>
-    <div id="queueList"></div>
+  <h4>Kö</h4>
+  <div id="queueList"></div>
 </div>
 
 </div>
@@ -125,131 +106,128 @@ const db = firebase.firestore();
 // ================= STATE =================
 let currentUserId = null;
 
-const priorityValue = {
-    red: 1,
-    yellow: 2,
-    green: 3
-};
+const prio = { red:1, yellow:2, green:3 };
 
 // ================= LOGIN =================
-function checkPassword() {
-    let pw = document.getElementById("password").value;
-
-    if (pw === "1234") {
-        document.getElementById("login").classList.add("hidden");
-        document.getElementById("role").classList.remove("hidden");
-    } else {
-        alert("Fel lösenord");
-    }
+function login() {
+  let pw = document.getElementById("password").value;
+  if (pw === "1234") {
+    document.getElementById("login").classList.add("hidden");
+    document.getElementById("role").classList.remove("hidden");
+  } else {
+    alert("Fel lösenord");
+  }
 }
 
 // ================= ROLE =================
 function setRole(role) {
-    document.getElementById("role").classList.add("hidden");
-    document.getElementById(role).classList.remove("hidden");
+  document.getElementById("role").classList.add("hidden");
+  document.getElementById(role).classList.remove("hidden");
+}
+
+// ================= JOIN =================
+function joinQueue() {
+  let name = document.getElementById("empName").value;
+  let priority = document.getElementById("priority").value;
+
+  if (!name) return alert("Skriv namn");
+
+  db.collection("queue").add({
+    name,
+    priority,
+    time: Date.now(),
+    takenBy: null
+  }).then(doc => {
+    currentUserId = doc.id;
+  });
 }
 
 // ================= EMPLOYEE ACTIONS =================
-function joinQueue() {
-    let name = document.getElementById("empName").value;
-    let priority = document.getElementById("priority").value;
-
-    if (!name) return alert("Skriv namn");
-
-    db.collection("queue").add({
-        name: name,
-        priority: priority,
-        time: Date.now(),
-        takenBy: null
-    }).then(doc => {
-        currentUserId = doc.id;
-    });
+function removeMy() {
+  if (!currentUserId) return;
+  db.collection("queue").doc(currentUserId).delete();
+  currentUserId = null;
 }
 
-// avbryt (tar bort din plats)
-function cancelMyQueue() {
-    if (!currentUserId) return;
+// ================= REALTIME =================
+db.collection("queue").onSnapshot(snapshot => {
 
-    db.collection("queue").doc(currentUserId).delete();
-    currentUserId = null;
-}
+  let items = [];
+  snapshot.forEach(d => items.push({id:d.id, ...d.data()}));
 
-// markera klar (samma som remove)
-function markDone() {
-    cancelMyQueue();
-}
+  // SORT
+  items.sort((a,b)=>{
+    if (prio[a.priority] !== prio[b.priority]) {
+      return prio[a.priority] - prio[b.priority];
+    }
+    return a.time - b.time;
+  });
 
-// ================= LEADER ACTIONS =================
-function take(id) {
-    let leader = document.getElementById("leaderName").value;
-    if (!leader) return alert("Skriv ditt namn");
-
-    db.collection("queue").doc(id).update({
-        takenBy: leader
-    });
-}
-
-function done(id) {
-    db.collection("queue").doc(id).delete();
-}
-
-// ================= REALTIME QUEUE =================
-db.collection("queue")
-.onSnapshot(snapshot => {
-
-    let list = document.getElementById("queueList");
-    let myStatus = document.getElementById("myStatus");
-
-    if (!list) return;
-
-    let items = [];
-
-    snapshot.forEach(doc => {
-        items.push({ id: doc.id, ...doc.data() });
-    });
-
-    items.sort((a, b) => {
-        if (priorityValue[a.priority] !== priorityValue[b.priority]) {
-            return priorityValue[a.priority] - priorityValue[b.priority];
-        }
-        return a.time - b.time;
-    });
-
+  // LEADER VIEW
+  let list = document.getElementById("queueList");
+  if (list) {
     list.innerHTML = "";
 
-    let myPosition = null;
+    items.forEach((q,i)=>{
 
-    items.forEach((q, index) => {
+      let div = document.createElement("div");
+      div.className = "queue-item " + q.priority;
 
-        if (q.id === currentUserId) {
-            myPosition = index + 1;
-        }
+      div.innerHTML = `
+        <b>${i+1}. ${q.name}</b><br>
+        Prio: ${q.priority.toUpperCase()}<br>
+        ${q.takenBy ? "Paxad av: " + q.takenBy : "Inte paxad"}
+        <br><br>
+        <button onclick="take('${q.id}')">Paxa</button>
+        <button onclick="done('${q.id}')">Klar</button>
+      `;
 
-        let div = document.createElement("div");
-        div.className = "queue-item " + q.priority;
+      list.appendChild(div);
+    });
+  }
 
-        div.innerHTML = `
-            <b>${index + 1}. ${q.name}</b><br>
-            Prio: ${
-                q.priority === "red" ? "HÖG" :
-                q.priority === "yellow" ? "MEDEL" : "LÅG"
-            }<br>
-            ${q.takenBy ? "Paxad av: " + q.takenBy : "Inte paxad"}
-            <br><br>
+  // EMPLOYEE VIEW (din plats + färgad box)
+  let myBox = document.getElementById("myBox");
 
-            <button onclick="take('${q.id}')">Paxa</button>
-            <button onclick="done('${q.id}')">Klar</button>
-        `;
+  if (myBox && currentUserId) {
 
-        list.appendChild(div);
+    let myIndex = null;
+    let myData = null;
+
+    items.forEach((q,i)=>{
+      if (q.id === currentUserId) {
+        myIndex = i+1;
+        myData = q;
+      }
     });
 
-    if (myStatus) {
-        myStatus.innerHTML = myPosition
-            ? "Din plats: " + myPosition
-            : "Inte i kön";
+    if (myData) {
+      myBox.classList.remove("hidden");
+      myBox.className = "my-box " + myData.priority;
+
+      myBox.innerHTML = `
+        <b>Din plats: ${myIndex}</b><br>
+        Status: ${myData.priority.toUpperCase()}<br><br>
+        <button onclick="removeMy()">Avbryt</button>
+        <button onclick="removeMy()">Klar</button>
+      `;
     }
+  }
 });
+
+// ================= LEADER ACTIONS =================
+function take(id){
+  let name = document.getElementById("leaderName").value;
+  if (!name) return alert("Skriv namn");
+
+  db.collection("queue").doc(id).update({
+    takenBy:name
+  });
+}
+
+function done(id){
+  db.collection("queue").doc(id).delete();
+}
 
 </script>
 
