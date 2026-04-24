@@ -2,17 +2,15 @@
 <html lang="sv">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Kösystem</title>
 
-<!-- Firebase (VIKTIGT: compat-version) -->
+<!-- Firebase -->
 <script src="https://www.gstatic.com/firebasejs/10.12.12/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.12/firebase-firestore-compat.js"></script>
 
 <style>
-body { font-family: Arial; background:#f4f4f4; text-align:center; }
-.container { max-width:750px; margin:auto; padding:20px; }
-.hidden { display:none; }
+body { font-family: Arial; text-align:center; background:#f4f4f4; }
+.container { max-width:700px; margin:auto; padding:20px; }
 
 input, select, button { padding:10px; margin:5px; }
 
@@ -43,150 +41,152 @@ input, select, button { padding:10px; margin:5px; }
 <h2>Kösystem</h2>
 
 <!-- LOGIN -->
-<div id="login">
-  <input type="password" id="password" placeholder="Lösenord">
-  <br>
-  <button onclick="login()">Logga in</button>
-</div>
+<input type="password" id="password" placeholder="Lösenord">
+<br>
+<button onclick="login()">Logga in</button>
 
-<!-- ROLE -->
-<div id="role" class="hidden">
-  <button onclick="setRole('employee')">Medarbetare</button>
-  <button onclick="setRole('leader')">Arbetsledare</button>
-</div>
+<div id="app" style="display:none">
+
+<hr>
+
+<button onclick="setRole('employee')">Medarbetare</button>
+<button onclick="setRole('leader')">Arbetsledare</button>
+
+<hr>
 
 <!-- EMPLOYEE -->
-<div id="employee" class="hidden">
-  <h3>Medarbetare</h3>
+<div id="employee" style="display:none">
 
-  <input id="empName" placeholder="Namn">
+<input id="empName" placeholder="Namn">
 
-  <br>
+<br>
 
-  <label>Prio:</label>
-  <select id="priority">
-    <option value="red">HÖG</option>
-    <option value="yellow">MEDEL</option>
-    <option value="green">LÅG</option>
-  </select>
+<label>Prio:</label>
+<select id="priority">
+  <option value="red">HÖG</option>
+  <option value="yellow">MEDEL</option>
+  <option value="green">LÅG</option>
+</select>
 
-  <br>
+<br>
 
-  <button onclick="joinQueue()">Ställ dig i kö</button>
+<button onclick="joinQueue()">Ställ dig i kö</button>
 
-  <div id="myBox" class="mybox hidden"></div>
+<div id="myBox" class="mybox" style="display:none"></div>
+
 </div>
 
 <!-- LEADER -->
-<div id="leader" class="hidden">
-  <h3>Arbetsledare</h3>
+<div id="leader" style="display:none">
 
-  <input id="leaderName" placeholder="Namn">
+<input id="leaderName" placeholder="Ditt namn">
 
-  <h4>Kö</h4>
-  <div id="queueList"></div>
+<h3>Kö</h3>
+<div id="queueList"></div>
+
 </div>
 
+</div>
 </div>
 
 <script>
+
+// ================= DEBUG =================
+console.log("SCRIPT LADDADE");
 
 // ================= FIREBASE =================
 const firebaseConfig = {
   apiKey: "AIzaSyC3lF1OGlr4em-jUQkz3a-UoeKMOQyFCYw",
   authDomain: "ko-system-ce728.firebaseapp.com",
-  projectId: "ko-system-ce728",
-  storageBucket: "ko-system-ce728.appspot.com",
-  messagingSenderId: "372176706388",
-  appId: "1:372176706388:web:16a3d1fbd593480d5546c1"
+  projectId: "ko-system-ce728"
 };
 
 firebase.initializeApp(firebaseConfig);
 const db = firebase.firestore();
 
+console.log("Firebase init klar");
+
 // ================= STATE =================
 let currentUserId = null;
 
-const prio = {
-  red: 1,
-  yellow: 2,
-  green: 3
-};
+const prio = { red:1, yellow:2, green:3 };
 
 // ================= LOGIN =================
-function login() {
-  let pw = document.getElementById("password").value;
-
-  if (pw === "1234") {
-    document.getElementById("login").classList.add("hidden");
-    document.getElementById("role").classList.remove("hidden");
+function login(){
+  if(document.getElementById("password").value === "1234"){
+    document.getElementById("app").style.display = "block";
   } else {
     alert("Fel lösenord");
   }
 }
 
 // ================= ROLE =================
-function setRole(role) {
-  document.getElementById("role").classList.add("hidden");
-  document.getElementById(role).classList.remove("hidden");
+function setRole(role){
+  document.getElementById("employee").style.display = "none";
+  document.getElementById("leader").style.display = "none";
+
+  document.getElementById(role).style.display = "block";
 }
 
-// ================= JOIN QUEUE =================
-function joinQueue() {
+// ================= JOIN =================
+function joinQueue(){
+
+  console.log("KNAPP TRYCKT");
+
   let name = document.getElementById("empName").value;
   let priority = document.getElementById("priority").value;
 
-  if (!name) return alert("Skriv namn");
+  if(!name) return alert("Skriv namn");
 
   db.collection("queue").add({
     name,
     priority,
     time: Date.now(),
     takenBy: null
-  }).then(doc => {
+  }).then(doc=>{
+    console.log("SKRIVER TILL FIREBASE");
     currentUserId = doc.id;
   });
 }
 
-// ================= EMPLOYEE ACTIONS =================
-function removeMy() {
-  if (!currentUserId) return;
+// ================= EMPLOYEE =================
+function removeMy(){
+  if(!currentUserId) return;
+
   db.collection("queue").doc(currentUserId).delete();
   currentUserId = null;
 }
 
-// ================= LEADER ACTIONS =================
-function take(id) {
+// ================= LEADER =================
+function take(id){
   let leader = document.getElementById("leaderName").value;
-  if (!leader) return alert("Skriv namn");
+  if(!leader) return alert("Skriv namn");
 
   db.collection("queue").doc(id).update({
     takenBy: leader
   });
 }
 
-function done(id) {
+function done(id){
   db.collection("queue").doc(id).delete();
 }
 
 // ================= REALTIME =================
-db.collection("queue").onSnapshot(snapshot => {
+db.collection("queue").onSnapshot(snapshot=>{
 
   let items = [];
-  snapshot.forEach(d => items.push({ id: d.id, ...d.data() }));
+  snapshot.forEach(d=>items.push({id:d.id,...d.data()}));
 
-  // SORT: prio först, sedan tid
   items.sort((a,b)=>{
-    if (prio[a.priority] !== prio[b.priority]) {
+    if(prio[a.priority] !== prio[b.priority]){
       return prio[a.priority] - prio[b.priority];
     }
     return a.time - b.time;
   });
 
-  // ===== LEADER VIEW =====
+  // LEADER
   let list = document.getElementById("queueList");
-
-  if (list) {
+  if(list){
     list.innerHTML = "";
 
     items.forEach((q,i)=>{
@@ -196,9 +196,8 @@ db.collection("queue").onSnapshot(snapshot => {
 
       div.innerHTML = `
         <b>${i+1}. ${q.name}</b><br>
-        Prio: ${q.priority.toUpperCase()}<br>
-        ${q.takenBy ? "Paxad av: " + q.takenBy : "Inte paxad"}
-        <br><br>
+        ${q.priority.toUpperCase()}<br>
+        ${q.takenBy || "Ej paxad"}<br>
         <button onclick="take('${q.id}')">Paxa</button>
         <button onclick="done('${q.id}')">Klar</button>
       `;
@@ -207,34 +206,27 @@ db.collection("queue").onSnapshot(snapshot => {
     });
   }
 
-  // ===== EMPLOYEE VIEW =====
+  // EMPLOYEE
   let myBox = document.getElementById("myBox");
 
-  if (myBox && currentUserId) {
+  if(currentUserId){
 
-    let myIndex = null;
-    let myData = null;
+    let mine = items.find(x=>x.id===currentUserId);
+    let pos = items.findIndex(x=>x.id===currentUserId) + 1;
 
-    items.forEach((q,i)=>{
-      if (q.id === currentUserId) {
-        myIndex = i + 1;
-        myData = q;
-      }
-    });
-
-    if (myData) {
-      myBox.classList.remove("hidden");
-      myBox.className = "mybox " + myData.priority;
+    if(mine){
+      myBox.style.display = "block";
+      myBox.className = "mybox " + mine.priority;
 
       myBox.innerHTML = `
-        <b>Din plats: ${myIndex}</b><br>
-        Prio: ${myData.priority.toUpperCase()}<br><br>
-
+        <b>Din plats: ${pos}</b><br>
+        ${mine.priority.toUpperCase()}<br><br>
         <button onclick="removeMy()">Avbryt</button>
         <button onclick="removeMy()">Klar</button>
       `;
     }
   }
+
 });
 
 </script>
