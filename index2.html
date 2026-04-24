@@ -1,0 +1,44 @@
+<!DOCTYPE html>
+<html>
+<head>
+
+<script src="https://www.gstatic.com/firebasejs/10.12.12/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.12/firebase-firestore-compat.js"></script>
+
+</head>
+<body>
+
+<button onclick="test()">TESTA FIRESTORE</button>
+
+<script>
+
+const firebaseConfig = {
+  apiKey: "AIzaSyC3lF1OGlr4em-jUQkz3a-UoeKMOQyFCYw",
+  authDomain: "ko-system-ce728.firebaseapp.com",
+  projectId: "ko-system-ce728"
+};
+
+firebase.initializeApp(firebaseConfig);
+const db = firebase.firestore();
+
+console.log("DB:", db);
+
+async function test(){
+  console.log("TRYCKER");
+
+  try {
+    const doc = await db.collection("test").add({
+      test: "hej"
+    });
+
+    console.log("SPARAD:", doc.id);
+
+  } catch(e){
+    console.error("ERROR:", e);
+  }
+}
+
+</script>
+
+</body>
+</html>
