@@ -4,22 +4,34 @@
 <meta charset="UTF-8">
 <title>Kösystem</title>
 
-<!-- Firebase -->
+<!-- Firebase (MÅSTE laddas före din kod) -->
 <script src="https://www.gstatic.com/firebasejs/10.12.12/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.12/firebase-firestore-compat.js"></script>
 
 <style>
-body { font-family: Arial; text-align:center; background:#f4f4f4; }
-.container { max-width:700px; margin:auto; padding:20px; }
+body {
+  font-family: Arial;
+  text-align: center;
+  background: #f4f4f4;
+}
 
-input, select, button { padding:10px; margin:5px; }
+.container {
+  max-width: 700px;
+  margin: auto;
+  padding: 20px;
+}
+
+input, select, button {
+  padding: 10px;
+  margin: 5px;
+}
 
 .queue-item {
-  background:white;
-  margin:8px;
-  padding:10px;
-  border-radius:8px;
-  text-align:left;
+  background: white;
+  margin: 8px;
+  padding: 10px;
+  border-radius: 8px;
+  text-align: left;
 }
 
 .red { background:#ffcccc; }
@@ -27,9 +39,9 @@ input, select, button { padding:10px; margin:5px; }
 .green { background:#d4edda; }
 
 .mybox {
-  margin-top:15px;
-  padding:15px;
-  border-radius:10px;
+  margin-top: 15px;
+  padding: 15px;
+  border-radius: 10px;
 }
 </style>
 
@@ -38,6 +50,7 @@ input, select, button { padding:10px; margin:5px; }
 <body>
 
 <div class="container">
+
 <h2>Kösystem</h2>
 
 <input type="password" id="password" placeholder="Lösenord">
@@ -53,7 +66,9 @@ input, select, button { padding:10px; margin:5px; }
 
 <hr>
 
+<!-- EMPLOYEE -->
 <div id="employee" style="display:none">
+
 <input id="empName" placeholder="Namn">
 
 <br>
@@ -67,13 +82,19 @@ input, select, button { padding:10px; margin:5px; }
 <br>
 
 <button onclick="joinQueue()">Ställ dig i kö</button>
+
 <div id="myBox" class="mybox" style="display:none"></div>
+
 </div>
 
+<!-- LEADER -->
 <div id="leader" style="display:none">
+
 <input id="leaderName" placeholder="Ditt namn">
+
 <h3>Kö</h3>
 <div id="queueList"></div>
+
 </div>
 
 </div>
@@ -81,13 +102,14 @@ input, select, button { padding:10px; margin:5px; }
 
 <script>
 
-// ================= FIREBASE =================
+// ================= FIREBASE INIT =================
 const firebaseConfig = {
   apiKey: "AIzaSyC3lF1OGlr4em-jUQkz3a-UoeKMOQyFCYw",
   authDomain: "ko-system-ce728.firebaseapp.com",
   projectId: "ko-system-ce728"
 };
 
+// Init AFTER scripts are loaded
 firebase.initializeApp(firebaseConfig);
 const db = firebase.firestore();
 
@@ -99,7 +121,9 @@ const prio = { red:1, yellow:2, green:3 };
 
 // ================= LOGIN =================
 function login(){
-  if(document.getElementById("password").value === "1234"){
+  const pass = document.getElementById("password").value;
+
+  if(pass === "1234"){
     document.getElementById("app").style.display = "block";
   } else {
     alert("Fel lösenord");
@@ -110,42 +134,80 @@ function login(){
 function setRole(role){
   document.getElementById("employee").style.display = "none";
   document.getElementById("leader").style.display = "none";
+
   document.getElementById(role).style.display = "block";
 }
 
-// ================= JOIN =================
+// ================= JOIN QUEUE =================
 async function joinQueue(){
 
   console.log("KNAPP TRYCKT");
 
-  let name = document.getElementById("empName").value;
-  let priority = document.getElementById("priority").value;
+  const name = document.getElementById("empName").value;
+  const priority = document.getElementById("priority").value;
 
-  if(!name) return alert("Skriv namn");
+  if(!name){
+    alert("Skriv namn");
+    return;
+  }
 
   try {
-    const doc = await db.collection("queue").add({
+
+    const docRef = await db.collection("queue").add({
       name: name,
       priority: priority,
       time: Date.now(),
       takenBy: null
     });
 
-    console.log("SPARAD:", doc.id);
-    currentUserId = doc.id;
+    console.log("SPARAD:", docRef.id);
 
-  } catch (err) {
-    console.error("FEL VID SPAR:", err);
+    currentUserId = docRef.id;
+
+  } catch (error) {
+    console.error("FEL VID SPAR:", error);
   }
 }
 
-// ================= REALTIME =================
-db.collection("queue").onSnapshot(snapshot=>{
-  console.log("Snapshot uppdaterad");
+// ================= REMOVE =================
+function removeMy(){
+  if(!currentUserId) return;
+
+  db.collection("queue").doc(currentUserId).delete();
+  currentUserId = null;
+}
+
+// ================= LEADER ACTIONS =================
+function take(id){
+  const leader = document.getElementById("leaderName").value;
+
+  if(!leader){
+    alert("Skriv ditt namn");
+    return;
+  }
+
+  db.collection("queue").doc(id).update({
+    takenBy: leader
+  });
+}
+
+function done(id){
+  db.collection("queue").doc(id).delete();
+}
+
+// ================= REALTIME LISTENER =================
+db.collection("queue").onSnapshot(snapshot => {
 
   let items = [];
-  snapshot.forEach(d=>items.push({id:d.id,...d.data()}));
 
+  snapshot.forEach(doc => {
+    items.push({
+      id: doc.id,
+      ...doc.data()
+    });
+  });
+
+  // sortering
   items.sort((a,b)=>{
     if(prio[a.priority] !== prio[b.priority]){
       return prio[a.priority] - prio[b.priority];
@@ -153,21 +215,48 @@ db.collection("queue").onSnapshot(snapshot=>{
     return a.time - b.time;
   });
 
-  let list = document.getElementById("queueList");
-  list.innerHTML = "";
+  // ===== LEADER VIEW =====
+  const list = document.getElementById("queueList");
 
-  items.forEach((q,i)=>{
-    let div = document.createElement("div");
-    div.className = "queue-item " + q.priority;
+  if(list){
+    list.innerHTML = "";
 
-    div.innerHTML = `
-      <b>${i+1}. ${q.name}</b><br>
-      ${q.priority}<br>
-      ${q.takenBy || "Ej paxad"}
-    `;
+    items.forEach((q,i)=>{
 
-    list.appendChild(div);
-  });
+      const div = document.createElement("div");
+      div.className = "queue-item " + q.priority;
+
+      div.innerHTML = `
+        <b>${i+1}. ${q.name}</b><br>
+        ${q.priority.toUpperCase()}<br>
+        ${q.takenBy || "Ej paxad"}<br>
+        <button onclick="take('${q.id}')">Paxa</button>
+        <button onclick="done('${q.id}')">Klar</button>
+      `;
+
+      list.appendChild(div);
+    });
+  }
+
+  // ===== EMPLOYEE VIEW =====
+  const myBox = document.getElementById("myBox");
+
+  if(currentUserId){
+
+    const mine = items.find(x=>x.id === currentUserId);
+    const pos = items.findIndex(x=>x.id === currentUserId) + 1;
+
+    if(mine){
+      myBox.style.display = "block";
+      myBox.className = "mybox " + mine.priority;
+
+      myBox.innerHTML = `
+        <b>Din plats: ${pos}</b><br>
+        ${mine.priority.toUpperCase()}<br><br>
+        <button onclick="removeMy()">Avbryt</button>
+      `;
+    }
+  }
 
 });
 
