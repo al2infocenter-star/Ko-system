@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <title>Kösystem</title>
 
-<!-- Firebase (MÅSTE laddas före din kod) -->
+<!-- Firebase (compat - ENDAST detta sätt) -->
 <script src="https://www.gstatic.com/firebasejs/10.12.12/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.12/firebase-firestore-compat.js"></script>
 
@@ -98,6 +98,7 @@ input, select, button {
 </div>
 
 </div>
+
 </div>
 
 <script>
@@ -109,15 +110,19 @@ const firebaseConfig = {
   projectId: "ko-system-ce728"
 };
 
-// Init AFTER scripts are loaded
 firebase.initializeApp(firebaseConfig);
 const db = firebase.firestore();
 
-console.log("Firebase init OK");
+console.log("Firebase OK");
 
 // ================= STATE =================
 let currentUserId = null;
-const prio = { red:1, yellow:2, green:3 };
+
+const prio = {
+  red: 1,
+  yellow: 2,
+  green: 3
+};
 
 // ================= LOGIN =================
 function login(){
@@ -134,7 +139,6 @@ function login(){
 function setRole(role){
   document.getElementById("employee").style.display = "none";
   document.getElementById("leader").style.display = "none";
-
   document.getElementById(role).style.display = "block";
 }
 
@@ -153,19 +157,19 @@ async function joinQueue(){
 
   try {
 
-    const docRef = await db.collection("queue").add({
+    const doc = await db.collection("queue").add({
       name: name,
       priority: priority,
       time: Date.now(),
       takenBy: null
     });
 
-    console.log("SPARAD:", docRef.id);
+    console.log("SPARAD:", doc.id);
 
-    currentUserId = docRef.id;
+    currentUserId = doc.id;
 
-  } catch (error) {
-    console.error("FEL VID SPAR:", error);
+  } catch (err) {
+    console.error("FEL VID SPAR:", err);
   }
 }
 
@@ -177,25 +181,7 @@ function removeMy(){
   currentUserId = null;
 }
 
-// ================= LEADER ACTIONS =================
-function take(id){
-  const leader = document.getElementById("leaderName").value;
-
-  if(!leader){
-    alert("Skriv ditt namn");
-    return;
-  }
-
-  db.collection("queue").doc(id).update({
-    takenBy: leader
-  });
-}
-
-function done(id){
-  db.collection("queue").doc(id).delete();
-}
-
-// ================= REALTIME LISTENER =================
+// ================= REALTIME LIST =================
 db.collection("queue").onSnapshot(snapshot => {
 
   let items = [];
@@ -207,21 +193,21 @@ db.collection("queue").onSnapshot(snapshot => {
     });
   });
 
-  // sortering
-  items.sort((a,b)=>{
+  // sortering (prio + tid)
+  items.sort((a, b) => {
     if(prio[a.priority] !== prio[b.priority]){
       return prio[a.priority] - prio[b.priority];
     }
     return a.time - b.time;
   });
 
-  // ===== LEADER VIEW =====
+  // ================= LEADER VIEW =================
   const list = document.getElementById("queueList");
 
   if(list){
     list.innerHTML = "";
 
-    items.forEach((q,i)=>{
+    items.forEach((q, i) => {
 
       const div = document.createElement("div");
       div.className = "queue-item " + q.priority;
@@ -229,7 +215,7 @@ db.collection("queue").onSnapshot(snapshot => {
       div.innerHTML = `
         <b>${i+1}. ${q.name}</b><br>
         ${q.priority.toUpperCase()}<br>
-        ${q.takenBy || "Ej paxad"}<br>
+        ${q.takenBy || "Ej paxad"}<br><br>
         <button onclick="take('${q.id}')">Paxa</button>
         <button onclick="done('${q.id}')">Klar</button>
       `;
@@ -238,13 +224,13 @@ db.collection("queue").onSnapshot(snapshot => {
     });
   }
 
-  // ===== EMPLOYEE VIEW =====
+  // ================= EMPLOYEE VIEW =================
   const myBox = document.getElementById("myBox");
 
   if(currentUserId){
 
-    const mine = items.find(x=>x.id === currentUserId);
-    const pos = items.findIndex(x=>x.id === currentUserId) + 1;
+    const mine = items.find(x => x.id === currentUserId);
+    const pos = items.findIndex(x => x.id === currentUserId) + 1;
 
     if(mine){
       myBox.style.display = "block";
@@ -259,6 +245,24 @@ db.collection("queue").onSnapshot(snapshot => {
   }
 
 });
+
+// ================= LEADER ACTIONS =================
+function take(id){
+  const leader = document.getElementById("leaderName").value;
+
+  if(!leader){
+    alert("Skriv namn");
+    return;
+  }
+
+  db.collection("queue").doc(id).update({
+    takenBy: leader
+  });
+}
+
+function done(id){
+  db.collection("queue").doc(id).delete();
+}
 
 </script>
 
